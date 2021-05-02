@@ -12,34 +12,54 @@ class Translator {
     let bucket = [];
     if(locale === 'american-to-british') {
       Object.keys(americanOnly).forEach(usEng => {
-        if(text.includes(usEng)) bucket.push([usEng, americanOnly[usEng]]);
+        if(new RegExp('\\b' + usEng + '\\b', 'i').test(text)) bucket.push([usEng, americanOnly[usEng]]);
       });
-      let words = text.split(' ');
+      let words = text.split(/\s/);
+      console.log(words);
       for(let i = 0; i < words.length; i++) {
         let time = words[i].match(/\d{1,2}[.:]\d{1,2}/g);
-        if(time) time.forEach(a => bucket.push([time, this.parseTime(a, locale)]));
+        if(time) time.forEach(a => bucket.push([a, this.parseTime(a, locale, a.search(/[.:]/))]));
         else {
           if(americanToBritishSpelling.hasOwnProperty(words[i])) bucket.push([words[i], americanToBritishSpelling[words[i]]]);
-          if(americanToBritishTitles.hasOwnProperty(words[i])) bucket.push([words[i], americanToBritishTitles[words[i]]]);
+          if(americanToBritishTitles.hasOwnProperty(words[i].toLowerCase())) bucket.push([words[i].slice(0, words[i].search(/\./)) + '\\.', americanToBritishTitles[words[i].toLowerCase()].replace(/^\w/, c => c.toUpperCase())]);
         }
       }
     }
     else {
       Object.keys(britishOnly).forEach(ukEng => {
-        if(text.includes(ukEng)) bucket.push(ukEng);
+        if(new RegExp('\\b' + ukEng + '\\b', 'i').test(text)) bucket.push([ukEng, britishOnly[ukEng]]);
       });
+      let words = text.split(/\s/), britishToAmericanSpelling = {}, britishToAmericanTitles = {};
+
+      for(let [usEng, ukEng] of Object.entries(americanToBritishSpelling)) {
+        britishToAmericanSpelling[ukEng] = usEng;
+      }
+      for(let [usEng, ukEng] of Object.entries(americanToBritishTitles)) {
+        britishToAmericanTitles[ukEng] = usEng;
+      }
+      console.log(words);
+      for(let i = 0; i < words.length; i++) {
+        let time = words[i].match(/\d{1,2}[.:]\d{1,2}/g);
+        if(time) time.forEach(a => bucket.push([a, this.parseTime(a, locale, a.search(/[.:]/))]));
+        else {
+          if(britishToAmericanSpelling.hasOwnProperty(words[i])) bucket.push([words[i], britishToAmericanSpelling[words[i]]]);
+          if(britishToAmericanTitles.hasOwnProperty(words[i].toLowerCase())) bucket.push([words[i], britishToAmericanTitles[words[i].toLowerCase()].replace(/^\w/, c => c.toUpperCase())]);
+        }
+      }
     }
-
-    console.log(bucket);
-
-   
-
-    /* If text requires no translation, return "Everything looks good to me!" for the translation value. */
+    
+    if(bucket.length === 0) return { text, translation : "Everything looks good to me!" };
+    let translation = text;
+    bucket.forEach(change => {
+      translation = translation.replace(new RegExp('\\b' + change[0] + '(?=\\.|\\s|$)', 'i'), '<span class="highlight">' + change[1] + '</span>');
+    })
+    
+    return { text, translation };
   }
 
-  parseTime(time, locale) {
-    if(locale === 'american-to-british') return time.slice(0, 2) + '.' + time.slice(3);
-    return time.slice(0, 2) + ':' + time.slice(3);
+  parseTime(time, locale, separator) {
+    if(locale === 'american-to-british') return time.slice(0, separator) + '.' + time.slice(separator + 1);
+    return time.slice(0, separator) + ':' + time.slice(separator + 1);
   }
 }
 
